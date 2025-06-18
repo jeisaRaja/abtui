@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"slices"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/jeisaRaja/abtui/src/config"
 )
 
 type model struct {
@@ -12,15 +15,22 @@ type model struct {
 	keymap   keymap
 	showHelp bool
 
-	tabs       []string
-	tabContent []string
-	activeTab  int
+	tabs             []string
+	tabContent       []string
+	activeTabContent Tab
+	activeTab        int
+
+	config *config.Config
 }
 
 func InitialModel() model {
 	tabs := []string{"Player", "Library", "Settings"}
 	tabContent := []string{"Player", "Library", "Settings"}
-	return model{width: 300, height: 200, keymap: keys, tabs: tabs, tabContent: tabContent}
+	cfg, err := config.LoadConfig("config.json")
+	if err != nil {
+		panic("config not found")
+	}
+	return model{width: 300, height: 200, keymap: keys, tabs: tabs, tabContent: tabContent, config: &cfg}
 }
 
 func (m model) Init() tea.Cmd {
@@ -33,15 +43,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+	case AddPathToConfigMsg:
+		if !slices.Contains(m.config.Filepaths, msg.Path) {
+			m.config.Filepaths = append(m.config.Filepaths, msg.Path)
+		}
+		cfg, err := config.SaveConfig("config.json", m.config)
+		if err != nil {
+			panic("config not found")
+		}
+		m.config = cfg
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.keymap.quit):
-			return m, tea.Quit
 		case key.Matches(msg, m.keymap.tab):
 			m.activeTab = (m.activeTab + 1) % len(m.tabs)
-			return m, nil
+			switch m.tabs[m.activeTab] {
+			case "Settings":
+				m.activeTabContent = NewSettingsTab(m.config.Filepaths, m.height-10)
+			}
+
+		case key.Matches(msg, m.keymap.quit):
+			return m, tea.Quit
 		}
 	}
+
+	if m.activeTabContent != nil {
+
+		tab, cmd := m.activeTabContent.Update(msg)
+		m.activeTabContent = tab
+
+		return m, cmd
+	}
+
 	return m, nil
 }
 
@@ -68,11 +100,12 @@ func (m model) View() string {
 
 	col := lipgloss.JoinVertical(lipgloss.Left, renderedTabs...)
 
-	content := lipgloss.NewStyle().
-		Padding(0, 2).
-		Width(50).
-		Height(m.height - 5).
-		Render("Content for tab: " + m.tabs[m.activeTab])
+	var content string
+	if m.activeTabContent != nil {
+		content = m.activeTabContent.View()
+	} else {
+		content = "content is still empty"
+	}
 
 	row := lipgloss.JoinHorizontal(lipgloss.Top, col, content)
 

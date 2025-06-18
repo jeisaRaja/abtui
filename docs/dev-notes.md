@@ -30,7 +30,7 @@ A terminal-based audiobook player built with:
 - [ ] Mark book as finished/archive
 
 ### 🔧 Advanced
-- [ ] Config file support (`~/.config/abtui/config.yaml`)
+- [ ] Config file support (`~/.config/abtui/config.json`)
 - [ ] Keyboard mapping customization
 - [ ] Background/tmux mode
 - [ ] Export/import state file
@@ -65,3 +65,5 @@ A terminal-based audiobook player built with:
 
 ## Notes
 - abtui assume audiobook will be stored as `title/book.m4b`
+- read config, read state, scan and add new book to state
+
